@@ -58,54 +58,39 @@ func main() {
 			}
 		}
 	}
-
 	fmt.Println(s)
 }
 
 func makeNumber(r *[]string, x int) int {
-	num := (*r)[x]
+	n := (*r)[x]
 	(*r)[x] = "."
 
-	p_l := x
-	p_r := x
+	n += constrctNum(r, x+1, 1)
+	n = constrctNum(r, x-1, -1) + n
 
-	if p_l > 0 {
-		p_l--
-	}
-	if p_r < len(*r)-1 {
-		p_r++
-	}
-
-	for true {
-		d1, d2 := false, false
-		if unicode.IsDigit(rune((*r)[p_l][0])) {
-			num = (*r)[p_l] + num
-			(*r)[p_l] = "."
-			if p_l > 0 {
-				p_l--
-				d1 = true
-			}
-		}
-		if unicode.IsDigit(rune((*r)[p_r][0])) {
-			num += (*r)[p_r]
-			(*r)[p_r] = "."
-			if p_r < len(*r)-1 {
-				p_r++
-				d2 = true
-			}
-		}
-		if !d1 && !d2 {
-			break
-		}
-	}
-
-	n, err := strconv.ParseInt(num, 10, 0)
+	num, err := strconv.ParseInt(n, 10, 0)
 
 	if err != nil {
 		panic("Zle je")
 	}
 
-	return int(n)
+	return int(num)
+}
+
+func constrctNum(r *[]string, x int, dir int) string {
+	if x >= 0 && x < len(*r) {
+		n := (*r)[x]
+		if unicode.IsDigit(rune(n[0])) {
+			if dir == 1 {
+				n += constrctNum(r, x+dir, dir)
+			} else if dir == -1 {
+				n = constrctNum(r, x+dir, dir) + n
+			}
+			(*r)[x] = "."
+			return n
+		}
+	}
+	return ""
 }
 
 var test = `.......497...........................858...923...128..................227..801........487.....664...........................................
