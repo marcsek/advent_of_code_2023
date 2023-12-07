@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"math"
 	"os"
 	"slices"
 	"sort"
@@ -12,16 +13,16 @@ import (
 )
 
 var strengths = map[string]int{
-	"2": 1,
-	"3": 2,
-	"4": 3,
-	"5": 4,
-	"6": 5,
-	"7": 6,
-	"8": 7,
-	"9": 8,
-	"T": 9,
-	"J": 10,
+	"J": 1,
+	"2": 2,
+	"3": 3,
+	"4": 4,
+	"5": 5,
+	"6": 6,
+	"7": 7,
+	"8": 8,
+	"9": 9,
+	"T": 10,
 	"Q": 11,
 	"K": 12,
 	"A": 13,
@@ -49,38 +50,53 @@ func main() {
 			}
 		}
 		mx := slices.Max(maps.Values(mp))
+		c, hasJ := mp["J"]
+		plusTier := 0
+		if hasJ {
+			plusTier = 1
+		}
 		if len(mp) == 1 {
 			values[0] = append(values[0], card)
 		} else if len(mp) == 2 {
 			if mx == 4 {
-				values[1] = append(values[1], card)
+				values[1-plusTier] = append(values[1-plusTier], card)
 			} else {
-				values[2] = append(values[2], card)
+				idx := int(math.Max(2-float64(plusTier*c), 0))
+				values[idx] = append(values[idx], card)
 			}
 		} else if len(mp) == 3 {
 			mx := slices.Max(maps.Values(mp))
 			if mx == 3 {
-				values[3] = append(values[3], card)
+				idx := int(math.Max(3-float64(plusTier*2*c), 0))
+				if c == 3 {
+					idx = 1
+				}
+				values[idx] = append(values[idx], card)
 			} else {
-				values[4] = append(values[4], card)
+				idx := int(math.Max(4-float64(plusTier*2*c), 0))
+				if c > 1 {
+					idx += 1
+				}
+				values[idx] = append(values[idx], card)
 			}
 		} else if len(mp) == 4 {
-			values[5] = append(values[5], card)
+			values[5-plusTier*2] = append(values[5-plusTier*2], card)
 		} else {
-			values[6] = append(values[6], card)
+			values[6-plusTier] = append(values[6-plusTier], card)
 		}
 	}
+	fmt.Println(values)
 	r := 1
 	slices.Reverse(values[:])
 	for _, value := range values {
 		if len(value) > 1 {
-			fmt.Println(compareCards(value))
-			r += 1
+			for _, d := range compareCards(value) {
+				sum += toInt(d[1]) * r
+				r += 1
+			}
 		} else if len(value) == 1 {
 			v := toInt(value[0][1])
 			sum += v * r
-			r += 1
-		} else {
 			r += 1
 		}
 	}
@@ -93,8 +109,9 @@ func compareCards(cards [][]string) [][]string {
 	for i, pair := range cards {
 		card := pair[0]
 		s := 0
-		for _, char := range card {
-			s += strengths[string(char)]
+		for i, char := range card {
+			p := 3 * (4 - i)
+			s += int(math.Pow(10, float64(p))) * strengths[string(char)]
 		}
 		bv = append(bv, []int{s, i})
 	}
