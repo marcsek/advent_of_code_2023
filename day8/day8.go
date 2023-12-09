@@ -4,9 +4,11 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 )
 
 func main() {
+	start := time.Now()
 	input := strings.Split(readFile("test.txt"), "\n")
 	dirs := ""
 	sepIdx := 0
@@ -49,7 +51,8 @@ func main() {
 		idx++
 	}
 
-	fmt.Println(LCM(firstZs[0], firstZs[1], firstZs...))
+	fmt.Printf("result: %v\n", LCM(firstZs[0], firstZs[1], firstZs...))
+	fmt.Printf("total time: %v", time.Since(start))
 }
 
 func GCD(a, b int) int {
