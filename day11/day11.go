@@ -10,7 +10,28 @@ func main() {
 	input := strings.Split(readFile("sample.txt"), "\n")
 	maze := parseInput(input[:len(input)-1])
 
-	printMaze(maze)
+	fmt.Println(len(findEdges(maze)))
+}
+
+func findLength(maze [][]rune) int {
+	for a1 := 0; a1 < len(maze); a1++ {
+		for a2 := a1 + 1; a2 < len(maze); a2++ {
+
+		}
+	}
+}
+
+func findEdges(maze [][]rune) [][]int {
+	edges := [][]int{}
+
+	for y, r := range maze {
+		for x, c := range r {
+			if c == '#' {
+				edges = append(edges, []int{y, x})
+			}
+		}
+	}
+	return edges
 }
 
 func parseInput(input []string) [][]rune {
@@ -33,26 +54,22 @@ func parseInput(input []string) [][]rune {
 			maze = append(maze, empty)
 		}
 	}
-	skip := false
+	correct := make([][]rune, len(maze))
 	for x := range maze[0] {
 		hasGalaxy := false
-		for y := range maze {
-			if maze[y][x] == '#' {
+		for i := 0; i < len(maze); i++ {
+			if maze[i][x] == '#' {
 				hasGalaxy = true
 			}
 		}
-		if !hasGalaxy && !skip {
-			for y_n := range maze {
-				maze[y_n] = append(maze[y_n][:x+1], maze[y_n][x:]...)
-				maze[y_n][x] = '.'
+		for y := range maze {
+			correct[y] = append(correct[y], maze[y][x])
+			if !hasGalaxy {
+				correct[y] = append(correct[y], '.')
 			}
-			skip = true
-		} else {
-			skip = false
 		}
 	}
-
-	return maze
+	return correct
 }
 
 func printMaze(maze [][]rune) {
