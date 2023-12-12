@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"math"
 	"os"
 	"slices"
 	"strconv"
@@ -17,17 +16,51 @@ type group struct {
 	Quesm []int
 }
 
+//???.###? ???.####
+//.??..??...?##. ?.??..??...?##.
+
 func main() {
-	input := strings.Split(readFile("sample.txt"), "\n")
+	input := strings.Split(readFile("test.txt"), "\n")
 	groups := []group{}
 
 	for _, line := range input[:len(input)-1] {
 		sp := strings.Split(line, " ")
-		recN := []rune(sp[0])
-		recN = append(recN, '?')
-		rec := getFiveMore([]rune(sp[0]), '?')
+
+		recNN := []rune{}
+		recN := []rune{}
+		if sp[0][len(sp[0])-1] != '#' {
+			recN = append(recN, '?')
+		}
+		//recN := []rune{'?'}
+		recN = append(recN, []rune(sp[0])...)
+		recNN = append(recNN, []rune(sp[0])...)
+		//recN = append(recN, '?')
+		if sp[0][len(sp[0])-1] != '#' {
+			if sp[0][len(sp[0])-1] != '?' {
+				rc := recNN
+				recNN = append([]rune{'?'}, rc...)
+			}
+			recN = getFiveMore(recN, 1)
+		} else {
+			recNN = append(recNN, '?')
+			recN = getFiveMore(recN, 1, '?')
+		}
+		recNNN := []rune{'?'}
+		if sp[0][len(sp[0])-1] == '#' {
+			recNNN = []rune{}
+		}
+		recNNN = append(recNNN, []rune(sp[0])...)
+		rec := getFiveMore([]rune(sp[0]), 1, '?')
+
 		posN := strListToInt(strings.Split(sp[1], ","))
-		pos := getFiveMore(posN)
+		if posN[len(posN)-1] == 1 && sp[0][len(sp[0])-1] == '?' {
+			recNNN = recNNN[1:]
+			recNNN = append(recNNN, '?')
+			rec = append(rec, '?')
+			recNN = append(recNN, '?')
+		}
+		pos := getFiveMore(posN, 1)
+		posN = getFiveMore(posN, 1)
 		quesm := []int{}
 		for x, r := range rec {
 			if r == '?' {
@@ -42,21 +75,46 @@ func main() {
 			}
 		}
 		groups = append(groups, group{Rec: []rune(recN), Pos: posN, Quesm: quesm})
+		quesm = []int{}
+		for x, r := range recNN {
+			if r == '?' {
+				quesm = append(quesm, x)
+			}
+		}
+		groups = append(groups, group{Rec: []rune(recNN), Pos: posN, Quesm: quesm})
+
+		quesm = []int{}
+		for x, r := range recNNN {
+			if r == '?' {
+				quesm = append(quesm, x)
+			}
+		}
+		groups = append(groups, group{Rec: []rune(recNNN), Pos: pos, Quesm: quesm})
 	}
 
 	total := 0
-	for i := 0; i < len(groups); i += 2 {
-		p1 := int(math.Pow(float64(genValid(groups[i+1])), 3))
+	for i := 0; i < len(groups); i += 4 {
+		d := genValid(groups[i+2])
+		p1 := genValid(groups[i+1])
 		p2 := genValid(groups[i])
-		fmt.Println(p1, p2)
-		total += p1 * p2
+		p3 := d * d
+		p4 := genValid(groups[i+3])
+		//fmt.Println(p1 * p2 * p3 * p4)
+		total += p1 * p2 * p3 * p4
 	}
+	//fmt.Println(string(groups[12].Rec))
+	//fmt.Println(genValid(groups[12]))
+	//fmt.Println(string(groups[13].Rec))
+	//fmt.Println(genValid(groups[13]))
+	//fmt.Println(string(groups[14].Rec))
+	//fmt.Println(genValid(groups[14]))
+	//fmt.Println(string(groups[15].Rec))
+	//fmt.Println(genValid(groups[15]))
 	fmt.Println(total)
 }
 
-func getFiveMore[T any](sl []T, z ...T) []T {
+func getFiveMore[T any](sl []T, m int, z ...T) []T {
 	newSl := []T{}
-	m := 2
 
 	for i := 0; i < m; i++ {
 		newSl = append(newSl, sl...)
