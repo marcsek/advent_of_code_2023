@@ -74,7 +74,7 @@ func main() {
 
 		// asi treba zdokonalit podmienku komplementu
 		validCompl := genvalid(appGroup)
-		canNegate := orgGroup.rec[len(orgGroup.rec)-1] == '#'
+		canNegate := orgGroup.rec[len(orgGroup.rec)-1] == '#' || orgGroup.rec[0] == '#'
 
 		if potCompl := genvalid(prepGroup); potCompl > validCompl && !canNegate {
 			validCompl = potCompl
