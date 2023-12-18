@@ -18,103 +18,53 @@ type vec struct {
 	x int
 }
 
-// 2685885422866
-//  952408144115
-
 func main() {
-	input := strings.Split(readFile("sample.txt"), "\n")
-	//digs := parseInput(input[:len(input)-1])
-	digs := parseInputOld(input[:len(input)-1])
-	y1, x1, y2, x2 := getHoleSize(digs)
-	//sy, sx := int(math.Abs(float64(y1)))+y2, int(math.Abs(float64(x1)))+x2
-	py, px := int(math.Abs(float64(y1))), int(math.Abs(float64(x1)))
-	walls := generateWalls(py, px, digs)
-	fmt.Println(walls)
+	input := strings.Split(readFile("test.txt"), "\n")
+	digs := parseInput(input[:len(input)-1])
+	coords, border := generateCoords(digs)
 
-	area := getAreaWithWalls(walls)
-
-	fmt.Println(area)
-	fmt.Println(y1, x1, y2, x2)
+	area := getAreaWithCoords(coords)
+	area = (int(math.Abs(float64(area))) + border + 1) / 2
+	fmt.Printf("result: %v\n", area)
 }
 
-func getAreaWithWalls(walls [][]vec) int {
+func getAreaWithCoords(coords []vec) int {
 	area := 0
-	cmprd := [][]int{}
-	overlaps := [][]int{}
-	for i := 0; i < len(walls)-1; i++ {
-		for j := i + 1; j < len(walls); j++ {
-			alreadyDid := false
-			for _, c := range cmprd {
-				pi, pj := c[1], c[0]
-				if pi == i && pj == j {
-					alreadyDid = true
-				}
-			}
-			if alreadyDid {
-				continue
-			}
-			w1, w2 := walls[i], walls[j]
-			x1, x2 := w1[0].x, w2[0].x
-			w1y1, w1y2, w2y1, w2y2 := w1[0].y, w1[1].y, w2[0].y, w2[1].y
-			rs := int(math.Max(float64(w1y1), float64(w2y1)))
-			re := int(math.Min(float64(w1y2), float64(w2y2)))
-			cmprd = append(cmprd, []int{i, j})
-			if w1y2 > w2y1 && w1y1 < w2y2 {
-				rng := int(math.Abs(float64(re-rs))) + 1
-				w := int(math.Abs(float64(x2-x1))) + 1
-				for _, ov := range overlaps {
-					l := ov[0]
-					if re == l {
-						fmt.Println(re, w)
-						area -= w
-						break
-					}
-				}
-				fmt.Println(rs, re, w1, w2, i, j, w*rng)
-				area += w * rng
-				overlaps = append(overlaps, []int{rs, x1, x2}, []int{re, x1, x2})
-			}
-		}
+	for i := 1; i < len(coords); i++ {
+		v1 := coords[i-1]
+		v2 := coords[i]
+
+		area += (v1.y + v2.y) * (v1.x - v2.x)
 	}
 	return area
 }
 
-func generateWalls(sy, sx int, digs []dig) [][]vec {
-	py, px := sy, sx
-	walls := [][]vec{}
+func generateCoords(digs []dig) ([]vec, int) {
+	py, px := 0, 0
+	coords := []vec{}
+	border := 1
 
 	for _, d := range digs {
 		if d.dir == "R" {
-			//c1 := vec{py, px}
 			c2 := vec{py, px + d.num}
+			coords = append(coords, c2)
 			py, px = c2.y, c2.x
 		} else if d.dir == "L" {
-			//c2 := vec{py, px}
 			c1 := vec{py, px - d.num}
+			coords = append(coords, c1)
 			py, px = c1.y, c1.x
 		} else if d.dir == "D" {
-			c1 := vec{py, px}
 			c2 := vec{py + d.num, px}
-			walls = append(walls, []vec{c1, c2})
+			coords = append(coords, c2)
 			py, px = c2.y, c2.x
 		} else {
-			c2 := vec{py, px}
 			c1 := vec{py - d.num, px}
-			walls = append(walls, []vec{c1, c2})
+			coords = append(coords, c1)
 			py, px = c1.y, c1.x
 		}
+		border += d.num
 	}
-	return walls
-}
-
-func parseInputOld(input []string) []dig {
-	digs := make([]dig, len(input))
-	for i, line := range input {
-		sp := strings.Split(line, " ")
-		dir, num := sp[0], decToInt(sp[1])
-		digs[i] = dig{dir, num}
-	}
-	return digs
+	return coords, border
 }
 
 func parseInput(input []string) []dig {
@@ -130,36 +80,6 @@ func parseInput(input []string) []dig {
 		digs[i] = dig{string(dir), num}
 	}
 	return digs
-}
-
-func getHoleSize(digs []dig) (int, int, int, int) {
-	y, x := 0, 0
-	y1, x1, y2, x2 := 0, 0, 0, 0
-
-	for _, d := range digs {
-		if d.dir == "R" {
-			x += d.num
-		} else if d.dir == "L" {
-			x -= d.num
-		} else if d.dir == "D" {
-			y += d.num
-		} else {
-			y -= d.num
-		}
-		if y1 > y {
-			y1 = y
-		}
-		if y2 < y {
-			y2 = y
-		}
-		if x1 > x {
-			x1 = x
-		}
-		if x2 < x {
-			x2 = x
-		}
-	}
-	return y1, x1, y2, x2
 }
 
 func hexToInt(i string) int {
