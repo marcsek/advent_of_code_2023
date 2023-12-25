@@ -3,12 +3,13 @@ package main
 import (
 	"fmt"
 	"os"
+	"slices"
 	"strings"
 )
 
 type module interface {
-	sendSignal() []module
-	receiveSignal(sender module)
+	sendSignal() ([]module, int, int)
+	receiveSignal(id string, state bool)
 	getDest() []module
 	updateDest(newDest []module)
 	getId() string
@@ -39,15 +40,24 @@ type output struct {
 	device
 }
 
-func (d *device) sendSignal() []module {
+func (d *device) sendSignal() ([]module, int, int) {
+	h, l := 0, 0
 	for _, r := range d.dest {
 		fmt.Printf("%v -%v-> %v\n", d.getId(), d.getState(), r.getId())
-		r.receiveSignal(d)
+		if d.state {
+			h++
+		} else {
+			l++
+		}
+		if r.getState() {
+
+		}
+
 	}
-	return d.getDest()
+	return d.getDest(), h, l
 }
 
-func (d *device) receiveSignal(sender module) {
+func (d *device) receiveSignal(id string, state bool) {
 	return
 }
 
@@ -69,7 +79,7 @@ func (d *device) getState() bool {
 }
 
 func newFlipFlop(id string) *flipFlop {
-	return &flipFlop{device{id, false, []module{}}, false}
+	return &flipFlop{device{id, false, []module{}}, true}
 }
 
 func newConjunction(id string) *conjunction {
@@ -84,8 +94,8 @@ func newOutput(id string) *output {
 	return &output{device{id, false, []module{}}}
 }
 
-func (fl *flipFlop) receiveSignal(sender module) {
-	if sender.getState() {
+func (fl *flipFlop) receiveSignal(id string, state bool) {
+	if state {
 		fl.shouldPulse = false
 		return
 	}
@@ -93,19 +103,27 @@ func (fl *flipFlop) receiveSignal(sender module) {
 	fl.state = !fl.state
 }
 
-func (fl *flipFlop) sendSignal() []module {
+func (fl *flipFlop) sendSignal() ([]module, int, int) {
 	if !fl.shouldPulse {
-		return []module{}
+		return []module{}, 0, 0
 	}
+	h, l := 0, 0
 	for _, r := range fl.dest {
 		fmt.Printf("%v -%v-> %v\n", fl.getId(), fl.getState(), r.getId())
-		r.receiveSignal(fl)
+		if fl.state {
+			h++
+		} else {
+			l++
+		}
+		if r.getState() {
+
+		}
 	}
-	return fl.getDest()
+	return fl.getDest(), h, l
 }
 
-func (cn *conjunction) receiveSignal(sender module) {
-	cn.inputs[sender.getId()] = sender.getState()
+func (cn *conjunction) receiveSignal(id string, state bool) {
+	cn.inputs[id] = state
 
 	for _, value := range cn.inputs {
 		if !value {
@@ -116,24 +134,79 @@ func (cn *conjunction) receiveSignal(sender module) {
 	cn.state = false
 }
 
-// TODO: Prejst cez vseky hodnoty a najst ci sa zhoduju so zaciatkom.
-func main() {
-	input := strings.Split(readFile("sample.txt"), "\n")
-	modules := parseInput(input[:len(input)-1])
+type caller struct {
+	id   string
+	mods []module
+}
 
-	for btnPush := 0; btnPush < 5; btnPush++ {
+func main() {
+	input := strings.Split(readFile("test.txt"), "\n")
+	modules := parseInput(input[:len(input)-1])
+	savedState := map[string]bool{}
+	fmt.Println(modules)
+
+	tH, tL := 0, 0
+	for btnPush := 0; btnPush < 1000; btnPush++ {
 		fmt.Printf("\n--  BUTTON PUSH %v --\n", btnPush+1)
 		signalQueue := []module{modules["broadcaster"]}
+		toReceive := []caller{}
+		newH, newL := 0, 0
 		for len(signalQueue) > 0 {
 			newQueue := []module{}
 
+			state := map[string]bool{}
+			for _, clr := range toReceive {
+				fmt.Println(modules[clr.id])
+				if found, ok := modules[clr.id]; ok {
+					state[clr.id] = found.getState()
+				} else {
+					state[clr.id] = false
+				}
+			}
+			//slices.Reverse(toReceive)
+			slices.Reverse(toReceive)
+			fmt.Println(state)
+			for _, clr := range toReceive {
+				for _, mod := range clr.mods {
+					mod.receiveSignal(modules[clr.id].getId(), state[clr.id])
+				}
+			}
+			toReceive = []caller{}
 			for _, mod := range signalQueue {
-				dest := mod.sendSignal()
+				dest, h, l := mod.sendSignal()
+				toReceive = append(toReceive, caller{mod.getId(), dest})
+				newH += h
+				newL += l
 				newQueue = append(newQueue, dest...)
 			}
 			signalQueue = newQueue
 		}
+		for _, clr := range toReceive {
+			for _, mod := range clr.mods {
+				mod.receiveSignal(modules[clr.id].getId(), modules[clr.id].getState())
+			}
+		}
+		//allMatch := true
+		//for key, value := range savedState {
+		//	if modules[key].getState() != value {
+		//		allMatch = false
+		//		break
+		//	}
+		//}
+		//if btnPush != 0 && allMatch {
+		//	fmt.Println("KONEC", tL, tH)
+		//	fmt.Println("VYSLEDOK: ", (tL*(1_000/(btnPush)))*(tH*(1_000/(btnPush))))
+		//	break
+		//}
+		if btnPush == 0 {
+			for _, mod := range modules {
+				savedState[mod.getId()] = mod.getState()
+			}
+		}
+		tH += newH
+		tL += newL + 1
 	}
+	fmt.Println(tH * tL)
 }
 
 func parseInput(input []string) map[string]module {
@@ -165,6 +238,8 @@ func parseInput(input []string) map[string]module {
 	}
 	for key, value := range modules {
 		updateOutputs(value, modules, strings.Split(dests[key], ", "))
+	}
+	for _, value := range modules {
 		if c, ok := value.(*conjunction); ok {
 			updateInputs(c, modules)
 		}
@@ -182,17 +257,20 @@ func updateOutputs(mod module, mods map[string]module, outs []string) {
 		}
 		newDest = append(newDest, found)
 	}
+	//fmt.Println("outputs", mod, newDest)
 	mod.updateDest(newDest)
 }
 
 func updateInputs(conj *conjunction, mods map[string]module) {
 	for key, value := range mods {
+		//fmt.Println(key, value)
 		for _, d := range value.getDest() {
-			if d.getId() == conj.getId() {
+			if d.getId() == conj.getId() && key != conj.getId() {
 				conj.inputs[key] = false
 			}
 		}
 	}
+	fmt.Println(conj.inputs)
 }
 
 func readFile(fn string) string {

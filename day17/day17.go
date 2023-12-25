@@ -1,8 +1,8 @@
 package main
 
 import (
+	"container/heap"
 	"fmt"
-	"math"
 	"os"
 	"strconv"
 	"strings"
@@ -13,102 +13,179 @@ type vec struct {
 	x int
 }
 
-var moves = []vec{{0, 1}, {1, 0}, {0, -1}, {-1, 0}}
+var moves = []vec{{-1, 0}, {0, 1}, {1, 0}, {0, -1}}
+var startPoint = vec{0, 0}
+var goal vec
 
 func main() {
-	input := strings.Split(readFile("test.txt"), "\n")
+	input := strings.Split(readFile("sample.txt"), "\n")
 	maze := make([][]int, len(input)-1)
 	for y, r := range input[:len(input)-1] {
 		maze[y] = append(maze[y], strListToInt(r)...)
 	}
-	total := 0
-	min := new(int)
-	*min = int(math.Inf(1))
-	lastPos := vec{0, 0}
-	i := 0
-	for true {
-		winPos := new(vec)
-		walkMaze(maze, min, 0, lastPos, vec{0, -1}, 0, []vec{}, 15, winPos)
-		total += *min
-		lastPos = *winPos
-		if lastPos.x == len(maze[0])-1 && lastPos.y == len(maze)-1 {
-			break
-		}
-		*min = int(math.Inf(1))
-		if i > 100 {
-			break
-		}
-		i++
-	}
+	goal = vec{len(maze) - 1, len(maze[len(maze)-1]) - 1}
+	goal = vec{1, 3}
+
+	moveMap := walkMazePriority(maze)
+	path := reconstructPath(moveMap)
+	printWithMove(maze, path)
+	fmt.Printf("total cost: %v\n", countMovementCost(maze, path))
 }
 
-func walkMaze(
-	maze [][]int,
-	min *int,
-	stSteps int,
-	pos vec,
-	pDir vec,
-	total int,
-	pp []vec,
-	buff int,
-	winPos *vec,
-) {
-	if total >= *min || pos.y < 0 || pos.y >= len(maze) || pos.x < 0 || pos.x >= len(maze[0]) {
-		return
-	}
+func walkMazePriority(maze [][]int) map[vec]vec {
+	queue := make(PriorityQueue, 0)
+	heap.Push(&queue, &Item{value: startPoint, priority: 0})
+	cameFrom := map[vec]vec{}
+	costSoFar := map[vec]int{}
+	cameFrom[startPoint] = vec{}
+	costSoFar[startPoint] = 0
 
-	if buff <= 0 || (pos.y == len(maze)-1 && pos.x == len(maze[0])-1) {
-		if *min > total {
-			*winPos = pos
-			*min = total
-			//showPath(pp, maze)
+	for len(queue) > 0 {
+		cur := heap.Pop(&queue).(*Item).value
+		if cur.y == goal.y && cur.x == goal.x {
+			break
 		}
-		return
-	}
-
-	for _, p := range pp {
-		if p.y == pos.y && p.x == pos.x {
-			return
-		}
-	}
-
-	pp = append(pp, pos)
-	cNum := maze[pos.y][pos.x]
-	for _, move := range moves {
-		if move.x != -pDir.x || move.y != -pDir.y {
-			newPos := vec{pos.y + move.y, pos.x + move.x}
-			if move.x == pDir.x && move.y == pDir.y {
-				if stSteps < 2 {
-					walkMaze(maze, min, stSteps+1, newPos, move, total+cNum, pp, buff-1, winPos)
+		//fmt.Println(cur, costSoFar[cur], cameFrom)
+		for _, m := range moves {
+			nY, nX := m.y+cur.y, m.x+cur.x
+			if 0 <= nY && len(maze) > nY && 0 <= nX && len(maze[nY]) > nX {
+				next := vec{nY, nX}
+				newCost := costSoFar[cur] + maze[nY][nX]
+				pc := cameFrom[next]
+				cameFrom[next] = cur
+				if hasStraightLines(maze, cameFrom, next, cur) == 4 {
+					continue
 				}
-			} else {
-				walkMaze(maze, min, 0, newPos, move, total+cNum, pp, buff-1, winPos)
+				cameFrom[next] = pc
+				if cost, ok := costSoFar[next]; !ok || newCost < cost {
+					costSoFar[next] = newCost
+					heap.Push(&queue, &Item{value: next, priority: newCost})
+					cameFrom[next] = cur
+				} else if newCost == cost {
+					pc := cameFrom[next]
+					cameFrom[next] = cur
+					t1 := hasStraightLines(maze, cameFrom, next, cur)
+					cameFrom[next] = pc
+					t2 := hasStraightLines(maze, cameFrom, cameFrom[pc], pc)
+					if t2 >= t1 {
+						cameFrom[next] = pc
+					}
+					fmt.Println(t1, t2)
+				}
 			}
 		}
 	}
+	return cameFrom
 }
 
-func showPath(path []vec, maze [][]int) {
-	sum := 0
+func hasStraightLines(maze [][]int, moveMap map[vec]vec, start vec, pStart vec) int {
+	cur := start
+	prev := pStart
+	prevDir := vec{cur.y - prev.y, cur.x - prev.x}
+	total := 0
+	buff := 4
+
+	for (cur.y != startPoint.y || cur.x != startPoint.x) && buff > 0 {
+		if cur.x-prev.x == prevDir.x && cur.y-prev.y == prevDir.y {
+			total += 1
+		} else {
+			total = 0
+		}
+		if total == 4 {
+			return 4
+		}
+		prevDir = vec{cur.y - prev.y, cur.x - prev.x}
+		cur = prev
+		prev = moveMap[cur]
+		buff--
+	}
+	return total
+}
+
+func walkMaze(maze [][]int) map[vec]vec {
+	queue := []vec{startPoint}
+	cameFrom := map[vec]vec{}
+	cameFrom[startPoint] = vec{}
+
+	buffer := -1
+	for len(queue) > 0 {
+		cur := queue[0]
+		if cur.y == goal.y && cur.x == goal.x || buffer == 0 {
+			break
+		}
+		for _, m := range moves {
+			nY, nX := m.y+cur.y, m.x+cur.x
+			if 0 <= nY && len(maze) > nY && 0 <= nX && len(maze[nY]) > nX {
+				next := vec{nY, nX}
+				if _, ok := cameFrom[next]; !ok {
+					queue = append(queue, vec{nY, nX})
+					cameFrom[next] = cur
+				}
+			}
+		}
+		buffer--
+		queue = queue[1:]
+	}
+	return cameFrom
+}
+
+func reconstructPath(moveMap map[vec]vec) []vec {
+	cur := goal
+	path := []vec{}
+
+	for cur.y != startPoint.y || cur.x != startPoint.x {
+		path = append(path, cur)
+		cur = moveMap[cur]
+	}
+	return path
+}
+
+func countMovementCost(maze [][]int, path []vec) int {
+	total := 0
 	for y, r := range maze {
 		for x, e := range r {
-			find := false
-			for _, p := range path {
+			isInPath := false
+			for _, p := range path[1:] {
 				if p.y == y && p.x == x {
-					find = true
+					isInPath = true
 					break
 				}
 			}
-			if find {
-				fmt.Print("#")
-				sum += e
-			} else {
-				fmt.Print(e)
+			if isInPath {
+				total += e
 			}
 		}
-		fmt.Println("")
 	}
-	fmt.Println(sum)
+	return total
+}
+
+func printWithMove[T any](maze [][]T, path []vec) {
+	for y, r := range maze {
+		for x, e := range r {
+			isInPath := false
+			for _, p := range path {
+				if p.y == y && p.x == x {
+					isInPath = true
+					break
+				}
+			}
+			if isInPath {
+				fmt.Printf("%v", "#")
+			} else {
+				fmt.Printf("%v", e)
+			}
+		}
+		fmt.Println()
+	}
+}
+
+func printMaze[T any](maze [][]T) {
+	for _, r := range maze {
+		for _, e := range r {
+			fmt.Printf(" %2v ", e)
+		}
+		fmt.Println()
+	}
 }
 
 func strListToInt(list string) []int {
@@ -131,4 +208,37 @@ func readFile(fn string) string {
 	}
 
 	return string(data)
+}
+
+type Item struct {
+	value    vec
+	priority int
+}
+
+type PriorityQueue []*Item
+
+func (piq PriorityQueue) Len() int {
+	return len(piq)
+}
+func (piq PriorityQueue) Less(i, j int) bool {
+	return piq[i].priority < piq[j].priority
+}
+func (piq PriorityQueue) Swap(i, j int) {
+	piq[i], piq[j] = piq[j], piq[i]
+}
+
+func (pq *PriorityQueue) Push(x interface{}) {
+	*pq = append(*pq, x.(*Item))
+}
+
+func (piq *PriorityQueue) Pop() interface{} {
+	old := *piq
+	n := len(old)
+	item := old[n-1]
+	*piq = old[0 : n-1]
+	return item
+}
+func (piq *PriorityQueue) Update(item *Item, value vec, priority int) {
+	item.value = value
+	item.priority = priority
 }
